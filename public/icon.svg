@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <linearGradient id="purpleGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0d0114" />
+      <stop offset="50%" stop-color="#180224" />
+      <stop offset="100%" stop-color="#06000a" />
+    </linearGradient>
+    <linearGradient id="neonGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#820ad1" />
+      <stop offset="100%" stop-color="#b149f2" />
+    </linearGradient>
+  </defs>
+  <rect width="512" height="512" rx="128" fill="url(#purpleGrad)" stroke="#1c032a" stroke-width="12"/>
+  <circle cx="256" cy="256" r="160" fill="none" stroke="rgba(177, 73, 242, 0.08)" stroke-width="4" stroke-dasharray="12 24"/>
+  <circle cx="256" cy="256" r="120" fill="none" stroke="rgba(177, 73, 242, 0.15)" stroke-width="2"/>
+  
+  <!-- Stylized Finances Pocket Graphic -->
+  <path d="M180 200h152c16 0 30 14 30 30v72c0 16-14 30-30 30H180c-16 0-30-14-30-30v-72c0-16 14-30 30-30z" fill="none" stroke="url(#neonGrad)" stroke-width="16" stroke-linejoin="round"/>
+  <!-- Pocket flap -->
+  <path d="M150 230l106 50 106-50" fill="none" stroke="url(#neonGrad)" stroke-width="10" stroke-linejoin="round"/>
+  <circle cx="256" cy="245" r="16" fill="#fb7185" />
+  
+  <!-- Elegant sparkles indicating "Presupuesto/Salidas Pareja" -->
+  <path d="M380 160c-10 0-15-5-15-15c0 10-5 15-15 15c10 0 15 5 15 15c0-10 5-15 15-15z" fill="#fb7185"/>
+  <path d="M130 360c-8 0-12-4-12-12c0 8-4 12-12 12c8 0 12 4 12 12c0-8 4-12 12-12z" fill="#b149f2"/>
+</svg>

@@ -1,0 +1,24 @@
+{
+  "short_name": "Finanzas Nu",
+  "name": "Finanzas Nu - Presupuesto y Cupo",
+  "description": "Control de finanzas de pareja, bolsillo de salidas y cupo de tarjeta de crédito Nu.",
+  "icons": [
+    {
+      "src": "icon.svg",
+      "type": "image/svg+xml",
+      "sizes": "192x192 512x512",
+      "purpose": "any"
+    },
+    {
+      "src": "icon-maskable.svg",
+      "type": "image/svg+xml",
+      "sizes": "192x192 512x512",
+      "purpose": "maskable"
+    }
+  ],
+  "start_url": "./index.html",
+  "display": "standalone",
+  "theme_color": "#0d0114",
+  "background_color": "#06000a",
+  "orientation": "portrait"
+}
