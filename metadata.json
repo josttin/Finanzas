@@ -1,0 +1,6 @@
+{
+  "name": "Nu Gastos Pareja",
+  "description": "Planificador de salidas con tu pareja y control de Tarjeta Nu con simulador francés de cuotas.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
