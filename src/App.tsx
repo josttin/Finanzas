@@ -27,7 +27,9 @@ import {
   ChevronRight,
   Sparkle,
   History,
-  Search
+  Search,
+  Download,
+  UploadCloud
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Transaction } from './types';
@@ -54,33 +56,67 @@ export default function App() {
 
   // --- State backing from LocalStorage to keep user's data persistent ---
   
-  // 1. Outings Section Balance & Monthly Budget Setup
+  // Custom Cycle Parameters with LocalStorage persistence to match real Nu Cards
+  const [cutoffDay, setCutoffDay] = useState<number>(() => {
+    const saved = localStorage.getItem('nu_app_cutoff_day');
+    return saved ? parseInt(saved) : 15; // default 15
+  });
+
+  const [paymentDueDay, setPaymentDueDay] = useState<number>(() => {
+    const saved = localStorage.getItem('nu_app_payment_due_day');
+    return saved ? parseInt(saved) : 4; // default 4
+  });
+
+  // 1. Outings Section Balance & Monthly Budget Setup (with migration support to preserve old data)
   const [salidasBalance, setSalidasBalance] = useState<number>(() => {
-    const saved = localStorage.getItem('nu_app_salidas_balance_v2');
-    return saved ? parseFloat(saved) : 400000; // default 400k
+    const savedV2 = localStorage.getItem('nu_app_salidas_balance_v2');
+    if (savedV2 !== null) return parseFloat(savedV2);
+    const savedV1 = localStorage.getItem('nu_app_salidas_balance');
+    if (savedV1 !== null) return parseFloat(savedV1);
+    const savedOld = localStorage.getItem('salidasBalance');
+    if (savedOld !== null) return parseFloat(savedOld);
+    return 400000; // default 400k
   });
 
   const [monthlyOutingsBudget, setMonthlyOutingsBudget] = useState<number>(() => {
-    const saved = localStorage.getItem('nu_app_monthly_outings_budget_v2');
-    return saved ? parseFloat(saved) : 400000; // default 400k, completely editable
+    const savedV2 = localStorage.getItem('nu_app_monthly_outings_budget_v2');
+    if (savedV2 !== null) return parseFloat(savedV2);
+    const savedV1 = localStorage.getItem('nu_app_monthly_outings_budget');
+    if (savedV1 !== null) return parseFloat(savedV1);
+    const savedOld = localStorage.getItem('monthlyOutingsBudget');
+    if (savedOld !== null) return parseFloat(savedOld);
+    return 400000; // default 400k, completely editable
   });
 
-  // 2. Credit Card Section: Credit Limit & Itemized Purchases
+  // 2. Credit Card Section: Credit Limit & Itemized Purchases (with migration support to preserve old data)
   const [creditCardLimit, setCreditCardLimit] = useState<number>(() => {
-    const saved = localStorage.getItem('nu_app_cc_limit_v2');
-    return saved ? parseFloat(saved) : 1000000; // default 1,000,000 COP, completely adjustable
+    const savedV2 = localStorage.getItem('nu_app_cc_limit_v2');
+    if (savedV2 !== null) return parseFloat(savedV2);
+    const savedV1 = localStorage.getItem('nu_app_cc_limit');
+    if (savedV1 !== null) return parseFloat(savedV1);
+    const savedOld = localStorage.getItem('creditCardLimit');
+    if (savedOld !== null) return parseFloat(savedOld);
+    return 1000000; // default 1,000,000 COP, completely adjustable
   });
 
   const [ccCharges, setCcCharges] = useState<CCCharge[]>(() => {
-    const saved = localStorage.getItem('nu_app_cc_charges_v2');
-    return saved ? JSON.parse(saved) : [];
+    const savedV2 = localStorage.getItem('nu_app_cc_charges_v2');
+    if (savedV2 !== null) return JSON.parse(savedV2);
+    const savedV1 = localStorage.getItem('nu_app_cc_charges');
+    if (savedV1 !== null) return JSON.parse(savedV1);
+    const savedOld = localStorage.getItem('ccCharges');
+    if (savedOld !== null) return JSON.parse(savedOld);
+    return [];
   });
 
-
-
   const [transactions, setTransactions] = useState<Transaction[]>(() => {
-    const saved = localStorage.getItem('nu_app_transactions_v2');
-    return saved ? JSON.parse(saved) : [];
+    const savedV2 = localStorage.getItem('nu_app_transactions_v2');
+    if (savedV2 !== null) return JSON.parse(savedV2);
+    const savedV1 = localStorage.getItem('nu_app_transactions');
+    if (savedV1 !== null) return JSON.parse(savedV1);
+    const savedOld = localStorage.getItem('transactions');
+    if (savedOld !== null) return JSON.parse(savedOld);
+    return [];
   });
 
   // 3. Simulated Day of the Month for Interactive Payment Alerts
@@ -102,6 +138,10 @@ export default function App() {
   const [tempBudgetInput, setTempBudgetInput] = useState<string>('400000');
   const [tempLimitInput, setTempLimitInput] = useState<string>('1000000');
 
+  // New Date Picker inputs
+  const [expenseDate, setExpenseDate] = useState<string>(() => new Date().toISOString().split('T')[0]);
+  const [ccPurchaseDate, setCcPurchaseDate] = useState<string>(() => new Date().toISOString().split('T')[0]);
+
   // New Outing Expense states
   const [expenseAmount, setExpenseAmount] = useState<string>('');
   const [expenseDesc, setExpenseDesc] = useState<string>('');
@@ -109,7 +149,7 @@ export default function App() {
   const [expenseInstallments, setExpenseInstallments] = useState<number>(1);
   const [isMarcaAliadaOuting, setIsMarcaAliadaOuting] = useState<boolean>(false);
   const [billingTargetOuting, setBillingTargetOuting] = useState<'current_26' | 'next_26'>(() => {
-    return new Date().getDate() <= 15 ? 'current_26' : 'next_26';
+    return new Date().getDate() <= cutoffDay ? 'current_26' : 'next_26';
   });
 
   // New Regular CC Purchase states
@@ -118,7 +158,7 @@ export default function App() {
   const [ccPurchaseInstallments, setCcPurchaseInstallments] = useState<number>(1);
   const [isMarcaAliadaGeneral, setIsMarcaAliadaGeneral] = useState<boolean>(false);
   const [billingTargetGeneral, setBillingTargetGeneral] = useState<'current_26' | 'next_26'>(() => {
-    return new Date().getDate() <= 15 ? 'current_26' : 'next_26';
+    return new Date().getDate() <= cutoffDay ? 'current_26' : 'next_26';
   });
 
   // Manual payment state
@@ -132,6 +172,14 @@ export default function App() {
   const [historyFilter, setHistoryFilter] = useState<'all' | 'salidas' | 'tarjeta' | 'abonos'>('all');
 
   // --- Sync storage changes ---
+  useEffect(() => {
+    localStorage.setItem('nu_app_cutoff_day', cutoffDay.toString());
+  }, [cutoffDay]);
+
+  useEffect(() => {
+    localStorage.setItem('nu_app_payment_due_day', paymentDueDay.toString());
+  }, [paymentDueDay]);
+
   useEffect(() => {
     localStorage.setItem('nu_app_salidas_balance_v2', salidasBalance.toString());
   }, [salidasBalance]);
@@ -147,8 +195,6 @@ export default function App() {
   useEffect(() => {
     localStorage.setItem('nu_app_cc_charges_v2', JSON.stringify(ccCharges));
   }, [ccCharges]);
-
-
 
   useEffect(() => {
     localStorage.setItem('nu_app_transactions_v2', JSON.stringify(transactions));
@@ -167,7 +213,67 @@ export default function App() {
   };
 
   // --- Dynamic calculations derived from state ---
-  
+  const SPANISH_MONTHS = React.useMemo(() => [
+    'enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio',
+    'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'
+  ], []);
+
+  const getSpanishMonth = (offsetMonths = 0) => {
+    const d = new Date();
+    d.setMonth(d.getMonth() + offsetMonths);
+    return SPANISH_MONTHS[d.getMonth()];
+  };
+
+  const isPurchaseBeforeCutoff = React.useCallback((dateStr: string) => {
+    if (!dateStr) return true;
+    const parts = dateStr.split('-');
+    const d = parseInt(parts[2]) || new Date().getDate();
+    return d <= cutoffDay;
+  }, [cutoffDay]);
+
+  const getDynamicSuggestionText = React.useCallback((dateStr: string) => {
+    if (!dateStr) return '';
+    const parts = dateStr.split('-');
+    const rawMonth = parseInt(parts[1]) || (new Date().getMonth() + 1);
+    const mMonthIndex = rawMonth - 1; // 0-based
+    const d = parseInt(parts[2]) || new Date().getDate();
+
+    const isBefore = d <= cutoffDay;
+    const purchaseMonthName = SPANISH_MONTHS[mMonthIndex % 12];
+    
+    if (isBefore) {
+      const cutMonthName = SPANISH_MONTHS[mMonthIndex % 12];
+      const dueMonthName = SPANISH_MONTHS[(mMonthIndex + 1) % 12];
+      return `💡 El consumo del ${d} de ${purchaseMonthName} entra en el corte del ${cutoffDay} de ${cutMonthName}. Tu fecha límite de pago oficial es el ${paymentDueDay} de ${dueMonthName}. Tu abono personal sugerido quedará bloqueado para el 26 de ${cutMonthName} (antes del vencimiento).`;
+    } else {
+      const cutMonthName = SPANISH_MONTHS[(mMonthIndex + 1) % 12];
+      const dueMonthName = SPANISH_MONTHS[(mMonthIndex + 2) % 12];
+      const nextAbonoMonthName = SPANISH_MONTHS[(mMonthIndex + 1) % 12];
+      return `💡 El consumo del ${d} de ${purchaseMonthName} es después del corte. Entra en el ciclo que corta el ${cutoffDay} de ${cutMonthName}, con vencimiento oficial el ${paymentDueDay} de ${dueMonthName}. Puedes elegir abonar este 26 de ${purchaseMonthName} o el próximo 26 de ${nextAbonoMonthName}.`;
+    }
+  }, [cutoffDay, paymentDueDay, SPANISH_MONTHS]);
+
+  // Synchronize billing targets with chosen dates & cutoffDay dynamically
+  useEffect(() => {
+    if (isPurchaseBeforeCutoff(expenseDate)) {
+      setBillingTargetOuting('current_26');
+    }
+  }, [expenseDate, cutoffDay, isPurchaseBeforeCutoff]);
+
+  useEffect(() => {
+    if (isPurchaseBeforeCutoff(ccPurchaseDate)) {
+      setBillingTargetGeneral('current_26');
+    }
+  }, [ccPurchaseDate, cutoffDay, isPurchaseBeforeCutoff]);
+
+  const getChargeAbonoLabel = (charge: CCCharge) => {
+    if (!charge.date) return 'Abono 26';
+    const parts = charge.date.split('-');
+    const m = (parseInt(parts[1]) || (new Date().getMonth() + 1)) - 1; // 0-based
+    const targetMonth = charge.billingTarget === 'current_26' ? m : m + 1;
+    return `Abono 26 de ${SPANISH_MONTHS[targetMonth % 12]}`;
+  };
+
   // Outstanding Debt: Sum of outstanding principal (amortized proportionally)
   const totalCcDebt = ccCharges.reduce((acc, charge) => {
     const unpaidRatio = (charge.installments - charge.paidInstallments) / charge.installments;
@@ -180,30 +286,76 @@ export default function App() {
   // CC Spending Percent
   const ccUsagePercent = creditCardLimit > 0 ? (totalCcDebt / creditCardLimit) * 100 : 0;
 
-  // Monthly installments sum
-  const activeInstallmentsTotal = ccCharges.reduce((acc, charge) => {
-    if (charge.paidInstallments < charge.installments) {
-      return acc + charge.monthlyPayment;
-    }
-    return acc;
-  }, 0);
+  // --- INTELLIGENT CREDIT CARD DATE ARITHMETIC ENGINE ---
+  // Calculates the official due date of each individual installment k (1-indexed) for the BANK
+  const getInstallmentDueDate = React.useCallback((
+    purchaseDateStr: string,
+    installmentIndex1Based: number
+  ) => {
+    const parts = purchaseDateStr.split('-');
+    // Support safe parsing of dates
+    const y = parseInt(parts[0]) || new Date().getFullYear();
+    const m = (parseInt(parts[1]) || (new Date().getMonth() + 1)) - 1; // 0-based
+    const d = parseInt(parts[2]) || new Date().getDate();
 
-  // Consolidated simulated monthly payment = Installments sum + Cuota de manejo (if there's any active debt)
+    let cutoffMonth = m;
+    let cutoffYear = y;
+
+    if (d > cutoffDay) {
+      // Passes current cut-off, falls in next month's cut-off cycle
+      cutoffMonth = m + 1;
+    }
+
+    // Since the cycle cuts off in cutoffMonth (on cutoffDay), the bank's 1st installment (k=1)
+    // is due on the paymentDueDay of the following month (cutoffMonth + 1)
+    const targetMonth = (cutoffMonth + 1) + (installmentIndex1Based - 1);
+    return new Date(cutoffYear, targetMonth, paymentDueDay);
+  }, [cutoffDay, paymentDueDay]);
+
+  // Construct a simulated Today Date using currentSimDay
+  const simTodayDate = React.useMemo(() => {
+    const d = new Date();
+    // Handle days exceeding the month's maximum length gracefully
+    const maxDays = new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate();
+    const targetDay = Math.min(currentSimDay, maxDays);
+    d.setDate(targetDay);
+    return d;
+  }, [currentSimDay]);
+
+  // Next Payment Due Date of the Credit Card
+  const nextPaymentDueDate = React.useMemo(() => {
+    const y = simTodayDate.getFullYear();
+    const m = simTodayDate.getMonth();
+    const d = simTodayDate.getDate();
+
+    // If we haven't passed the payment due day of the current month yet, that's the next deadline.
+    if (d <= paymentDueDay) {
+      return new Date(y, m, paymentDueDay);
+    } else {
+      // Otherwise, the next deadline is the payment due day of the next month.
+      return new Date(y, m + 1, paymentDueDay);
+    }
+  }, [simTodayDate, paymentDueDay]);
+
+  // Sum of due installments across all charges up to nextPaymentDueDate
+  const activeInstallmentsTotal = React.useMemo(() => {
+    return ccCharges.reduce((acc, charge) => {
+      let dueCount = 0;
+      for (let k = 1; k <= charge.installments; k++) {
+        const iDueDate = getInstallmentDueDate(charge.date, k);
+        if (iDueDate <= nextPaymentDueDate) {
+          dueCount++;
+        }
+      }
+      const unpaidDueCount = Math.max(0, dueCount - charge.paidInstallments);
+      return acc + (unpaidDueCount * charge.monthlyPayment);
+    }, 0);
+  }, [ccCharges, nextPaymentDueDate, getInstallmentDueDate]);
+
+  // Consolidated simulated monthly payment = Installments sum + Cuota de manejo (if there's any active debt due)
   const estimatedMonthlyMinimumPayment = activeInstallmentsTotal > 0 
     ? activeInstallmentsTotal + CC_CUOTA_MANEJO 
     : 0;
-
-  // --- Calendar Date and Cycle Helpers for Intelligent Billing ---
-  const SPANISH_MONTHS = [
-    'enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio',
-    'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'
-  ];
-
-  const getSpanishMonth = (offsetMonths = 0) => {
-    const d = new Date();
-    d.setMonth(d.getMonth() + offsetMonths);
-    return SPANISH_MONTHS[d.getMonth()];
-  };
 
   // --- Amortization formula calculation (French system / Marca Aliada) ---
   const calculateFrenchInstallment = (principal: number, installments: number, isMarcaAliada = false) => {
@@ -276,7 +428,7 @@ export default function App() {
 
       const newTx: Transaction = {
         id: 'out-deb-' + Math.random().toString(36).substr(2, 9),
-        date: new Date().toISOString().split('T')[0],
+        date: expenseDate,
         description: `[DÉBITO] ${descriptionText}`,
         amount: -amountNum,
         type: 'expense',
@@ -304,7 +456,7 @@ export default function App() {
       // 5. Append charge to credit card charges
       const newCharge: CCCharge = {
         id: 'cc-' + Math.random().toString(36).substr(2, 9),
-        date: new Date().toISOString().split('T')[0],
+        date: expenseDate,
         description: `[Salida] ${descriptionText}`,
         amount: amountNum,
         installments: expenseInstallments,
@@ -319,12 +471,12 @@ export default function App() {
 
       const aliadaLabel = isMarcaAliadaOuting ? ' [M. Aliada 0% Int]' : '';
       const targetLabel = billingTargetOuting === 'current_26' 
-        ? ` (Pagar el 26 de ${getSpanishMonth(0)})` 
-        : ` (Pagar el 26 de ${getSpanishMonth(1)})`;
+        ? ` (Pagar el ${paymentDueDay} de ${getSpanishMonth(0)})` 
+        : ` (Pagar el ${paymentDueDay} de ${getSpanishMonth(1)})`;
 
       const newTx: Transaction = {
         id: 'out-cred-' + Math.random().toString(36).substr(2, 9),
-        date: new Date().toISOString().split('T')[0],
+        date: expenseDate,
         description: `[CRÉDITO - ${expenseInstallments} cuotas] ${descriptionText}${aliadaLabel}${targetLabel}`,
         amount: -amountNum,
         type: 'credit_card_payment',
@@ -340,7 +492,9 @@ export default function App() {
     setExpenseDesc('');
     setExpenseInstallments(1);
     setIsMarcaAliadaOuting(false);
-    setBillingTargetOuting(new Date().getDate() <= 15 ? 'current_26' : 'next_26');
+    setExpenseDate(new Date().toISOString().split('T')[0]);
+    // Set target billing according to current cutoff
+    setBillingTargetOuting(new Date().getDate() <= cutoffDay ? 'current_26' : 'next_26');
   };
 
   // 3. Registrar Compra General de Tarjeta (Fuera del presupuesto de salidas)
@@ -365,7 +519,7 @@ export default function App() {
 
     const newCharge: CCCharge = {
       id: 'cc-gen-' + Math.random().toString(36).substr(2, 9),
-      date: new Date().toISOString().split('T')[0],
+      date: ccPurchaseDate,
       description: descriptionText,
       amount: amountNum,
       installments: ccPurchaseInstallments,
@@ -380,12 +534,12 @@ export default function App() {
 
     const aliadaLabel = isMarcaAliadaGeneral ? ' [M. Aliada 0% Int]' : '';
     const targetLabel = billingTargetGeneral === 'current_26' 
-      ? ` (Pagar el 26 de ${getSpanishMonth(0)})` 
-      : ` (Pagar el 26 de ${getSpanishMonth(1)})`;
+      ? ` (Pagar el ${paymentDueDay} de ${getSpanishMonth(0)})` 
+      : ` (Pagar el ${paymentDueDay} de ${getSpanishMonth(1)})`;
 
     const newTx: Transaction = {
       id: 'tx-ccg-' + Math.random().toString(36).substr(2, 9),
-      date: new Date().toISOString().split('T')[0],
+      date: ccPurchaseDate,
       description: `[Compra General CC - ${ccPurchaseInstallments}M] ${descriptionText}${aliadaLabel}${targetLabel}`,
       amount: -amountNum,
       type: 'credit_card_payment',
@@ -397,7 +551,8 @@ export default function App() {
     setCcPurchaseDesc('');
     setCcPurchaseInstallments(1);
     setIsMarcaAliadaGeneral(false);
-    setBillingTargetGeneral(new Date().getDate() <= 15 ? 'current_26' : 'next_26');
+    setCcPurchaseDate(new Date().toISOString().split('T')[0]);
+    setBillingTargetGeneral(new Date().getDate() <= cutoffDay ? 'current_26' : 'next_26');
     alert(`Compra general agregada exitosamente. Se redujo tu cupo disponible en ${formatCOP(amountNum)}.`);
   };
 
@@ -456,6 +611,63 @@ export default function App() {
     setManualPayAmount('');
   };
 
+  // --- SEGURIDAD DE DATOS (IMPORTAR & EXPORTAR RESPALDO LOCAL) ---
+  const handleExportBackup = () => {
+    const backupData = {
+      cutoffDay,
+      paymentDueDay,
+      salidasBalance,
+      monthlyOutingsBudget,
+      creditCardLimit,
+      ccCharges,
+      transactions,
+      currentSimDay
+    };
+    const blob = new Blob([JSON.stringify(backupData, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `NuFinanzas_Respaldo_${new Date().toISOString().split('T')[0]}.json`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
+
+  const handleImportBackup = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      try {
+        const rawResult = event.target?.result;
+        if (typeof rawResult !== 'string') return;
+        const data = JSON.parse(rawResult);
+        
+        let importedCount = 0;
+        if (typeof data.cutoffDay === 'number') { setCutoffDay(data.cutoffDay); importedCount++; }
+        if (typeof data.paymentDueDay === 'number') { setPaymentDueDay(data.paymentDueDay); importedCount++; }
+        if (typeof data.salidasBalance === 'number') { setSalidasBalance(data.salidasBalance); importedCount++; }
+        if (typeof data.monthlyOutingsBudget === 'number') { setMonthlyOutingsBudget(data.monthlyOutingsBudget); importedCount++; }
+        if (typeof data.creditCardLimit === 'number') { setCreditCardLimit(data.creditCardLimit); importedCount++; }
+        if (Array.isArray(data.ccCharges)) { setCcCharges(data.ccCharges); importedCount++; }
+        if (Array.isArray(data.transactions)) { setTransactions(data.transactions); importedCount++; }
+        if (typeof data.currentSimDay === 'number') { setCurrentSimDay(data.currentSimDay); importedCount++; }
+
+        if (importedCount > 0) {
+          alert('¡Respaldo importado con éxito! 🎉 Se han recuperado tus deudas, presupuestos y configuraciones de forma limpia.');
+        } else {
+          alert('El archivo cargado no posee un formato de respaldo válido para esta app.');
+        }
+      } catch (err) {
+        alert('Ocurrió un error al procesar el archivo de respaldo: ' + (err as Error).message);
+      }
+    };
+    reader.readAsText(file);
+    e.target.value = '';
+  };
+
   // 6. Eliminar Cargo Individual de la Tarjeta (Fácil corrección)
   const handleDeleteIndividualCharge = (chargeId: string) => {
     const charge = ccCharges.find(c => c.id === chargeId);
@@ -483,17 +695,34 @@ export default function App() {
       return;
     }
 
+    if (estimatedMonthlyMinimumPayment <= 0) {
+      alert('La cuota mínima exigible para este corte es de $0. No tienes cuotas cortadas que pagar en este momento.');
+      return;
+    }
+
     const confirmSim = window.confirm(
-      `¿Deseas registrar la amortización mensual de la tarjeta por ${formatCOP(estimatedMonthlyMinimumPayment)}?\n\n` +
-      `Esto incrementará en 1 la cuota pagada de cada compra diferida activa y considerará la cuota de manejo mensual ($12K).`
+      `¿Deseas registrar el pago de la cuota mensual de la tarjeta por ${formatCOP(estimatedMonthlyMinimumPayment)}?\n\n` +
+      `Esto amortizará únicamente las cuotas que ya han cortado (exigibles para el ciclo que vence el ${nextPaymentDueDate.getDate()} de ${SPANISH_MONTHS[nextPaymentDueDate.getMonth()]}) junto con la cuota de manejo mensual ($12K). Las compras que no han cortado se pagarán en el próximo ciclo.`
     );
     if (!confirmSim) return;
 
     const updated = ccCharges.map(charge => {
-      return {
-        ...charge,
-        paidInstallments: Math.min(charge.installments, charge.paidInstallments + 1)
-      };
+      // Find how many installments are due up to the payment next due date
+      let dueCount = 0;
+      for (let k = 1; k <= charge.installments; k++) {
+        if (getInstallmentDueDate(charge.date, k) <= nextPaymentDueDate) {
+          dueCount++;
+        }
+      }
+      // Calculate how many are due but not yet paid
+      const unpaidDueCount = Math.max(0, dueCount - charge.paidInstallments);
+      if (unpaidDueCount > 0) {
+        return {
+          ...charge,
+          paidInstallments: Math.min(charge.installments, charge.paidInstallments + unpaidDueCount)
+        };
+      }
+      return charge;
     }).filter(c => c.paidInstallments < c.installments);
 
     setCcCharges(updated);
@@ -501,13 +730,13 @@ export default function App() {
     const newTx: Transaction = {
       id: 'nu-closed-' + Math.random().toString(36).substr(2, 9),
       date: new Date().toISOString().split('T')[0],
-      description: `Cierre del Mes Nu (Cuota ordinaria de ${formatCOP(estimatedMonthlyMinimumPayment)} descontada)`,
+      description: `Cierre del Mes Nu (Cuota ordinaria de ${formatCOP(estimatedMonthlyMinimumPayment)} descontada de deuda)`,
       amount: -estimatedMonthlyMinimumPayment,
       type: 'transfer',
       fromPocketId: 'tarjeta_credito'
     };
     setTransactions(prev => [newTx, ...prev]);
-    alert('¡Cierre de mes simulado con éxito! Las cuotas avanzaron un mes.');
+    alert('¡Cierre de mes y amortización simulados con éxito! Se avanzaron las cuotas que ya estaban listas para cobro.');
   };
 
   // Reset App data completely
@@ -538,10 +767,10 @@ export default function App() {
   // --- Date Reminder Alerts (Dynamic Content based on simulation Day) ---
   const renderDateReminders = () => {
     const list: Array<{ day: number; desc: string; title: string; type: 'urgent' | 'warning' | 'info' }> = [
-      { day: 3, title: 'Día de Pago Ordinario', desc: 'Sueles pagar la tarjeta hoy usando tus ahorros resguardados.', type: 'urgent' },
-      { day: 4, title: 'Fecha Límite de Pago', desc: 'Último chance para pagar el extracto del mes al banco.', type: 'urgent' },
-      { day: 13, title: 'Abono Planificado', desc: 'Fecha configurada para efectuar aportaciones preventivas a tus deudas diferidas.', type: 'warning' },
-      { day: 15, title: 'Fecha de Corte Nu', desc: 'Se consolida el extracto y se calculan tus cuotas mensuales fijas.', type: 'info' }
+      { day: Math.max(1, paymentDueDay - 1), title: 'Día de Pago Ordinario', desc: 'Sueles pagar la tarjeta hoy usando tus ahorros resguardados.', type: 'urgent' },
+      { day: paymentDueDay, title: 'Fecha Límite de Pago', desc: 'Último chance para pagar el extracto del mes al banco.', type: 'urgent' },
+      { day: Math.max(1, cutoffDay - 2), title: 'Abono Planificado', desc: 'Fecha configurada para efectuar aportaciones preventivas a tus deudas diferidas.', type: 'warning' },
+      { day: cutoffDay, title: 'Fecha de Corte Nu', desc: 'Se consolida el extracto y se calculan tus cuotas mensuales fijas.', type: 'info' }
     ];
 
     // Find if today matches any direct date or nearby
@@ -872,15 +1101,9 @@ export default function App() {
 
                           {/* Mini dynamic explanation text */}
                           <div className="p-2.5 rounded-lg bg-black/40 border border-purple-955/30 text-[9px] text-zinc-350 leading-relaxed space-y-1">
-                            {new Date().getDate() <= 15 ? (
-                              <p>
-                                💡 <strong>Sugerencia Inteligente:</strong> Al comprar hoy ({new Date().getDate()} del mes), entra en el corte del 15. Tu fecha límite de pago es el próximo 4 de {getSpanishMonth(1)}.
-                              </p>
-                            ) : (
-                              <p>
-                                💡 <strong>Sugerencia Inteligente:</strong> Al comprar hoy ({new Date().getDate()} del mes), el corte ya pasó. Entra en el ciclo que corta el 15 de {getSpanishMonth(1)}, con vencimiento el 4 de {getSpanishMonth(2)}.
-                              </p>
-                            )}
+                            <p>
+                              {getDynamicSuggestionText(expenseDate)}
+                            </p>
                             <p className="text-pink-300/80 italic font-medium font-mono text-[8.5px]">
                               Cuota estim: {expenseInstallments === 1 ? '1 sola cuota sin intereses' : isMarcaAliadaOuting ? `${formatCOP(parseFloat(expenseAmount || '0') / expenseInstallments)} [Ahorro 0% Int]` : `${formatCOP(calculateFrenchInstallment(parseFloat(expenseAmount || '0'), expenseInstallments, isMarcaAliadaOuting))} / mes con intereses`}
                             </p>
@@ -897,21 +1120,35 @@ export default function App() {
                                   : 'bg-black/30 border-purple-955/20 text-purple-305/60'
                               }`}
                             >
-                              <span>Abonar este 26 ({getSpanishMonth(0)})</span>
-                              <span className="text-[8px] text-purple-400 font-normal">Ciclo Express</span>
+                              <span>Abonar este 26 ({(() => {
+                                const parts = expenseDate.split('-');
+                                const m = (parseInt(parts[1]) || (new Date().getMonth() + 1)) - 1;
+                                return SPANISH_MONTHS[m % 12];
+                              })()})</span>
+                              <span className="text-[8px] text-purple-400 font-normal">Sugerido</span>
                             </button>
 
                             <button
                               type="button"
+                              disabled={isPurchaseBeforeCutoff(expenseDate)}
                               onClick={() => setBillingTargetOuting('next_26')}
                               className={`py-2 px-1 text-[9.5px] rounded-xl font-bold border transition-all flex flex-col items-center justify-center ${
-                                billingTargetOuting === 'next_26'
+                                isPurchaseBeforeCutoff(expenseDate)
+                                  ? 'opacity-40 bg-zinc-950/20 border-zinc-900/30 text-zinc-500 cursor-not-allowed'
+                                  : billingTargetOuting === 'next_26'
                                   ? 'bg-purple-950/50 border-[#820ad1] text-white'
                                   : 'bg-black/30 border-purple-955/20 text-purple-305/60'
                               }`}
+                              title={isPurchaseBeforeCutoff(expenseDate) ? "No elegible porque el consumo vence el próximo 4" : "Abonar en el periodo de abono posterior"}
                             >
-                              <span>Abonar próximo 26 ({getSpanishMonth(1)})</span>
-                              <span className="text-[8px] text-purple-400 font-normal">Planificado</span>
+                              <span>Abonar próximo 26 ({(() => {
+                                const parts = expenseDate.split('-');
+                                const m = (parseInt(parts[1]) || (new Date().getMonth() + 1));
+                                return SPANISH_MONTHS[m % 12];
+                              })()})</span>
+                              <span className="text-[8px] font-normal">
+                                {isPurchaseBeforeCutoff(expenseDate) ? '🚫 Vence el 4' : 'Planificado'}
+                              </span>
                             </button>
                           </div>
                         </div>
@@ -1155,15 +1392,9 @@ export default function App() {
 
                       {/* Mini dynamic explanation text */}
                       <div className="p-2 rounded-lg bg-black/40 border border-purple-955/35 text-[8.5px] text-zinc-350 leading-relaxed">
-                        {new Date().getDate() <= 15 ? (
-                          <p>
-                            💡 <strong>Ciclo Estimado:</strong> Compras antes del 15 cortan este mes. Tu abono sugerido se debe programar para este <strong>26 de {getSpanishMonth(0)}</strong>.
-                          </p>
-                        ) : (
-                          <p>
-                            💡 <strong>Ciclo Estimado:</strong> Compras hoy después del 15 cortan el próximo mes. Límit de pago normal es el 4 de {getSpanishMonth(2)}. Se sugiere pagar el <strong>26 de {getSpanishMonth(1)}</strong>.
-                          </p>
-                        )}
+                        <p>
+                          {getDynamicSuggestionText(ccPurchaseDate)}
+                        </p>
                         <p className="text-[#bc8acf] italic mt-1 font-mono text-[8.5px]">
                           Cuota estim: {ccPurchaseInstallments === 1 ? '1 sola cuota sin intereses' : isMarcaAliadaGeneral ? `${formatCOP(parseFloat(ccPurchaseAmount || '0') / ccPurchaseInstallments)} [Ahorro 0% Int]` : `${formatCOP(calculateFrenchInstallment(parseFloat(ccPurchaseAmount || '0'), ccPurchaseInstallments, isMarcaAliadaGeneral))} / mes con intereses`}
                         </p>
@@ -1180,19 +1411,31 @@ export default function App() {
                               : 'bg-black/30 border-purple-955/20 text-purple-305/60'
                           }`}
                         >
-                          <span>Abonar este 26 ({getSpanishMonth(0)})</span>
+                          <span>Abonar este 26 ({(() => {
+                            const parts = ccPurchaseDate.split('-');
+                            const m = (parseInt(parts[1]) || (new Date().getMonth() + 1)) - 1;
+                            return SPANISH_MONTHS[m % 12];
+                          })()})</span>
                         </button>
 
                         <button
                           type="button"
+                          disabled={isPurchaseBeforeCutoff(ccPurchaseDate)}
                           onClick={() => setBillingTargetGeneral('next_26')}
                           className={`py-2 px-1 rounded-xl font-bold border transition-all flex flex-col items-center justify-center ${
-                            billingTargetGeneral === 'next_26'
+                            isPurchaseBeforeCutoff(ccPurchaseDate)
+                              ? 'opacity-40 bg-zinc-950/20 border-zinc-900/30 text-zinc-500 cursor-not-allowed'
+                              : billingTargetGeneral === 'next_26'
                               ? 'bg-purple-950/50 border-[#820ad1] text-white'
                               : 'bg-black/30 border-purple-955/20 text-purple-305/60'
                           }`}
+                          title={isPurchaseBeforeCutoff(ccPurchaseDate) ? "No elegible porque el consumo vence el próximo 4" : "Abonar en el periodo de abono posterior"}
                         >
-                          <span>Abonar próximo 26 ({getSpanishMonth(1)})</span>
+                          <span>Abonar próximo 26 ({(() => {
+                            const parts = ccPurchaseDate.split('-');
+                            const m = (parseInt(parts[1]) || (new Date().getMonth() + 1));
+                            return SPANISH_MONTHS[m % 12];
+                          })()})</span>
                         </button>
                       </div>
                     </div>
@@ -1240,7 +1483,7 @@ export default function App() {
                                   )}
                                   {charge.billingTarget && (
                                     <span className="text-[8.5px] bg-purple-950/50 text-[#bc8acf] px-1.5 py-0.5 rounded border border-purple-900/30 font-medium shrink-0">
-                                      📅 {charge.billingTarget === 'current_26' ? 'Abono 26 de ' + getSpanishMonth(0) : 'Abono 26 de ' + getSpanishMonth(1)}
+                                      📅 {getChargeAbonoLabel(charge)}
                                     </span>
                                   )}
                                 </h4>
@@ -1273,6 +1516,21 @@ export default function App() {
                                 <span className="text-rose-450 font-bold">{formatCOP(individualOutstanding)}</span>
                               </div>
                             </div>
+
+                            {unpaidCount > 0 && (() => {
+                              const nextK = charge.paidInstallments + 1;
+                              const dueDate = getInstallmentDueDate(charge.date, nextK);
+                              const day = dueDate.getDate();
+                              const monthName = SPANISH_MONTHS[dueDate.getMonth()];
+                              return (
+                                <p className="text-[8.5px] text-zinc-400 font-sans italic flex items-center gap-1 mt-0.5">
+                                  <span>🏦 Próxima cuota del banco ({nextK}/{charge.installments}) vence:</span>
+                                  <span className="font-bold font-mono text-purple-300 bg-purple-950/30 px-1 py-0.2 rounded border border-purple-900/10 shrink-0">
+                                    {day} de {monthName}
+                                  </span>
+                                </p>
+                              );
+                            })()}
                           </div>
                         );
                       })}
@@ -1553,35 +1811,78 @@ export default function App() {
                     <motion.div
                       initial={{ opacity: 0, height: 0 }}
                       animate={{ opacity: 1, height: 'auto' }}
-                      className="p-4 rounded-xl bg-[#11021b]/80 border border-purple-950/45 space-y-2.5"
+                      className="p-4 rounded-xl bg-[#11021b]/80 border border-purple-950/45 space-y-3.5"
                       id="sim-day-slider"
                     >
-                      <div className="flex justify-between items-center text-xs">
-                        <span className="font-semibold text-purple-200">Día del mes cargado:</span>
-                        <span className="font-mono text-xs font-bold bg-purple-950/30 text-[#bc8acf] px-2 py-0.5 rounded border border-purple-900/10">
-                          Día {currentSimDay} del mes
-                        </span>
+                      {/* SIMU DAY CONTROL */}
+                      <div className="space-y-1.5">
+                        <div className="flex justify-between items-center text-xs">
+                          <span className="font-semibold text-purple-200">Día del mes simulado:</span>
+                          <span className="font-mono text-xs font-bold bg-purple-950/30 text-[#bc8acf] px-2 py-0.5 rounded border border-purple-900/10">
+                            Día {currentSimDay}
+                          </span>
+                        </div>
+                        <p className="text-[9px] text-zinc-400 leading-normal font-sans">
+                          Ajusta el día actual para simular el paso del tiempo y probar alertas automáticas de corte, abonos o límite de pago.
+                        </p>
+                        <input
+                          type="range"
+                          min="1"
+                          max="31"
+                          value={currentSimDay}
+                          onChange={(e) => setCurrentSimDay(parseInt(e.target.value))}
+                          className="w-full h-1 bg-purple-950/80 rounded-lg appearance-none cursor-pointer accent-[#b149f2]"
+                          id="range-sim-day"
+                        />
                       </div>
 
-                      <p className="text-[9px] text-zinc-400 leading-normal font-sans">
-                        Configura un día específico de prueba para ver el comportamiento de las notificaciones de cortes (15), abonos (13) y fechas límite de pagos (3 y 4 de cada mes):
-                      </p>
+                      {/* CUTOFF DAY CONTROL */}
+                      <div className="border-t border-purple-950/30 pt-3 space-y-1.5">
+                        <div className="flex justify-between items-center text-xs">
+                          <span className="font-semibold text-purple-200">Día de Corte de la Tarjeta:</span>
+                          <span className="font-mono text-xs font-bold bg-purple-950/30 text-[#bc8acf] px-2 py-0.5 rounded border border-purple-900/10">
+                            Día {cutoffDay} de cada mes
+                          </span>
+                        </div>
+                        <p className="text-[9px] text-zinc-400 leading-normal font-sans">
+                          Nu consolida tus compras acumuladas hasta este día. Lo que compres después se pasa al siguiente mes.
+                        </p>
+                        <input
+                          type="range"
+                          min="1"
+                          max="28"
+                          value={cutoffDay}
+                          onChange={(e) => setCutoffDay(parseInt(e.target.value))}
+                          className="w-full h-1 bg-purple-950/80 rounded-lg appearance-none cursor-pointer accent-[#b149f2]"
+                        />
+                      </div>
 
-                      <input
-                        type="range"
-                        min="1"
-                        max="31"
-                        value={currentSimDay}
-                        onChange={(e) => setCurrentSimDay(parseInt(e.target.value))}
-                        className="w-full h-1 bg-purple-950/80 rounded-lg appearance-none cursor-pointer accent-[#b149f2]"
-                        id="range-sim-day"
-                      />
+                      {/* DUE DAY CONTROL */}
+                      <div className="border-t border-purple-950/30 pt-3 space-y-1.5">
+                        <div className="flex justify-between items-center text-xs">
+                          <span className="font-semibold text-purple-200">Día Límite de Pago (Vencimiento):</span>
+                          <span className="font-mono text-xs font-bold bg-purple-950/30 text-[#bc8acf] px-2 py-0.5 rounded border border-purple-900/10">
+                            Día {paymentDueDay} del mes siguiente
+                          </span>
+                        </div>
+                        <p className="text-[9px] text-zinc-400 leading-normal font-sans">
+                          Último día permitido por el banco para pagar el extracto mensual sin generar cobro de intereses de mora.
+                        </p>
+                        <input
+                          type="range"
+                          min="1"
+                          max="28"
+                          value={paymentDueDay}
+                          onChange={(e) => setPaymentDueDay(parseInt(e.target.value))}
+                          className="w-full h-1 bg-purple-950/80 rounded-lg appearance-none cursor-pointer accent-[#b149f2]"
+                        />
+                      </div>
 
-                      <div className="grid grid-cols-4 gap-1 text-[8.5px] font-mono text-center text-zinc-400">
-                        <button onClick={() => setCurrentSimDay(3)} className={`p-1 rounded ${currentSimDay === 3 ? 'bg-purple-800 text-white font-bold' : 'bg-black/20 hover:bg-purple-955/20'}`}>Pago (Día 3)</button>
-                        <button onClick={() => setCurrentSimDay(4)} className={`p-1 rounded ${currentSimDay === 4 ? 'bg-purple-800 text-white font-bold' : 'bg-black/20 hover:bg-purple-955/20'}`}>Lím (Día 4)</button>
-                        <button onClick={() => setCurrentSimDay(13)} className={`p-1 rounded ${currentSimDay === 13 ? 'bg-purple-800 text-white font-bold' : 'bg-black/20 hover:bg-purple-955/20'}`}>Abo (Día 13)</button>
-                        <button onClick={() => setCurrentSimDay(15)} className={`p-1 rounded ${currentSimDay === 15 ? 'bg-purple-800 text-white font-bold' : 'bg-black/20 hover:bg-purple-955/20'}`}>Corte (Día 15)</button>
+                      <div className="grid grid-cols-4 gap-1 text-[8.5px] font-mono text-center text-zinc-400 pt-1">
+                        <button onClick={() => setCurrentSimDay(Math.max(1, paymentDueDay - 1))} className={`p-1 rounded ${currentSimDay === Math.max(1, paymentDueDay - 1) ? 'bg-purple-800 text-white font-bold' : 'bg-black/20 hover:bg-purple-955/20'}`}>Pago (Día {Math.max(1, paymentDueDay - 1)})</button>
+                        <button onClick={() => setCurrentSimDay(paymentDueDay)} className={`p-1 rounded ${currentSimDay === paymentDueDay ? 'bg-purple-800 text-white font-bold' : 'bg-black/20 hover:bg-purple-955/20'}`}>Límite (Día {paymentDueDay})</button>
+                        <button onClick={() => setCurrentSimDay(Math.max(1, cutoffDay - 2))} className={`p-1 rounded ${currentSimDay === Math.max(1, cutoffDay - 2) ? 'bg-purple-800 text-white font-bold' : 'bg-black/20 hover:bg-purple-955/20'}`}>Abono (Día {Math.max(1, cutoffDay - 2)})</button>
+                        <button onClick={() => setCurrentSimDay(cutoffDay)} className={`p-1 rounded ${currentSimDay === cutoffDay ? 'bg-purple-800 text-white font-bold' : 'bg-black/20 hover:bg-purple-955/20'}`}>Corte (Día {cutoffDay})</button>
                       </div>
                     </motion.div>
                   )}
@@ -1593,15 +1894,15 @@ export default function App() {
                   {/* Dynamic Date reminders */}
                   {renderDateReminders()}
 
-                  {/* Regla del 50% & 30% Warnings - active before cutoff date (day 15) */}
-                  {currentSimDay < 15 ? (
+                  {/* Regla del 50% & 30% Warnings - active before cutoff date */}
+                  {currentSimDay < cutoffDay ? (
                     ccUsagePercent > 50 ? (
                       <div className="p-4 rounded-2xl bg-rose-950/35 border-2 border-rose-500 text-rose-105 flex gap-3 shadow-md animate-bounce-subtle" id="alert-over-50">
                         <AlertTriangle className="w-5 h-5 text-rose-400 shrink-0" />
                         <div>
                           <p className="text-[11px] font-bold uppercase tracking-wider text-rose-205">🚨 ¡ADVERTENCIA CRÍTICA (Antes de corte)!</p>
                           <p className="text-[10px] text-zinc-200 mt-1 leading-relaxed font-sans">
-                            Has superado el <strong>50%</strong> del cupo de tu tarjeta ({formatCOP(creditCardLimit * 0.5)}) antes de tu fecha de corte (Día 15). 
+                            Has superado el <strong>50%</strong> del cupo de tu tarjeta ({formatCOP(creditCardLimit * 0.5)}) antes de tu fecha de corte (Día {cutoffDay}). 
                             Nu reportará un nivel de endeudamiento alto a las agencias crediticias, lo que disminuye tu puntaje Score. Te recomendamos liberar cupo de inmediato.
                           </p>
                         </div>
@@ -1613,7 +1914,7 @@ export default function App() {
                           <p className="text-[11px] font-bold uppercase tracking-wider text-amber-400">⚠️ RECOMENDACIÓN DE CUPO (Mantenimiento)</p>
                           <p className="text-[10px] text-zinc-200 mt-1 leading-relaxed font-sans">
                             Estás superando el <strong>30%</strong> acumulativo de tu cupo disponible ({formatCOP(creditCardLimit * 0.3)}). 
-                            Para mantener un perfil ideal ante el banco y asegurar que tu historial crediticio se mantenga impecable, procura no sobrepasar este umbral antes del día 15.
+                            Para mantener un perfil ideal ante el banco y asegurar que tu historial crediticio se mantenga impecable, procura no sobrepasar este umbral antes del día {cutoffDay}.
                           </p>
                         </div>
                       </div>
@@ -1634,7 +1935,7 @@ export default function App() {
                       <div>
                         <p className="text-[11px] font-bold text-purple-300 uppercase">Ciclo de Facturación en Proceso</p>
                         <p className="text-[10px] text-zinc-300 mt-1 leading-relaxed font-sans">
-                          Te encuentras en la segunda quincena del mes (Pasada la fecha de corte 15). Las deudas aquí facturas formarán parte del corte del próximo mes. Recuerda tus fechas límites de pago (Días 3 y 4).
+                          Te encuentras en el período de facturación consolidándose (Pasada la fecha de corte del día {cutoffDay}). Las deudas aquí facturadas formarán parte del corte del próximo período. Recuerda tus fechas límites de pago (Días {paymentDueDay - 1} y {paymentDueDay}).
                         </p>
                       </div>
                     </div>
@@ -1651,6 +1952,39 @@ export default function App() {
                       <li><strong>Control 30% ordinario:</strong> Mantener consumos por debajo de {formatCOP(creditCardLimit * 0.3)}</li>
                       <li><strong>Alarma 50% límite:</strong> No comprometer cupo por más de {formatCOP(creditCardLimit * 0.5)} antes de la fecha límite ordinaria para no dañar reportes.</li>
                     </ul>
+                  </div>
+
+                  {/* CENTRAL DE RESPALDO Y SEGURIDAD */}
+                  <div className="p-4 bg-gradient-to-br from-[#1b0330] to-[#0a0014] border border-[#820ad1]/25 rounded-2xl space-y-3 shadow-md" id="backup-restore-center">
+                    <div>
+                      <h4 className="text-[10.5px] font-bold text-white uppercase tracking-wider flex items-center gap-1.5 font-mono">
+                        <UploadCloud className="w-4 h-4 text-[#bc8acf]" /> Respaldo de Seguridad Local
+                      </h4>
+                      <p className="text-[9.5px] text-zinc-450 mt-1 leading-relaxed">
+                        ¿Quieres asegurar que nada de lo registrado se borre? Descarga un archivo con tus datos para guardarlo o importarlo en otro celular de forma indefinida.
+                      </p>
+                    </div>
+
+                    <div className="flex gap-2.5">
+                      <button
+                        onClick={handleExportBackup}
+                        className="flex-1 py-1.5 px-3 bg-[#820ad1]/20 border border-[#820ad1]/40 hover:bg-[#820ad1]/30 text-white rounded-xl text-[9px] font-bold transition-all flex items-center justify-center gap-1.5 font-sans"
+                      >
+                        <Download className="w-3.5 h-3.5 text-purple-300" />
+                        Exportar JSON
+                      </button>
+
+                      <label className="flex-1 py-1.5 px-3 bg-black/40 border border-purple-900/30 hover:bg-black/60 text-purple-200 rounded-xl text-[9px] font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer font-sans">
+                        <UploadCloud className="w-3.5 h-3.5 text-purple-300" />
+                        Importar JSON
+                        <input
+                          type="file"
+                          accept=".json"
+                          onChange={handleImportBackup}
+                          className="hidden"
+                        />
+                      </label>
+                    </div>
                   </div>
                 </div>
 
